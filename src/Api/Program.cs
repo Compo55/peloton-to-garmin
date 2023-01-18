@@ -9,6 +9,7 @@ using Conversion;
 using Garmin;
 using Microsoft.Extensions.Caching.Memory;
 using Peloton;
+using Peloton.AnnualChallenge;
 using Philosowaffle.Capability.ReleaseChecks;
 using Prometheus;
 using Serilog;
@@ -71,32 +72,39 @@ builder.Services.AddSwaggerGen(c =>
 // CACHE
 builder.Services.AddSingleton<IMemoryCache, MemoryCache>();
 
-// SETTINGS
-builder.Services.AddSingleton<ISettingsDb, SettingsDb>();
-builder.Services.AddSingleton<ISettingsService, SettingsService>();
-
-// IO
-builder.Services.AddSingleton<IFileHandling, IOWrapper>();
-
-// PELOTON
-builder.Services.AddSingleton<IPelotonApi, Peloton.ApiClient>();
-builder.Services.AddSingleton<IPelotonService, PelotonService>();
+// CONVERT
+builder.Services.AddSingleton<IConverter, FitConverter>();
+builder.Services.AddSingleton<IConverter, TcxConverter>();
+builder.Services.AddSingleton<IConverter, JsonConverter>();
 
 // GARMIN
 builder.Services.AddSingleton<IGarminUploader, GarminUploader>();
 builder.Services.AddSingleton<IGarminApiClient, Garmin.ApiClient>();
 
+// IO
+builder.Services.AddSingleton<IFileHandling, IOWrapper>();
+
+// MIGRATIONS
+builder.Services.AddSingleton<IDbMigrations, DbMigrations>();
+
+// PELOTON
+builder.Services.AddSingleton<IPelotonApi, Peloton.ApiClient>();
+builder.Services.AddSingleton<IPelotonService, PelotonService>();
+builder.Services.AddSingleton<IAnnualChallengeService, AnnualChallengeService>();
+
 // RELEASE CHECKS
 builder.Services.AddGitHubReleaseChecker();
+
+// SETTINGS
+builder.Services.AddSingleton<ISettingsDb, SettingsDb>();
+builder.Services.AddSingleton<ISettingsService, SettingsService>();
 
 // SYNC
 builder.Services.AddSingleton<ISyncStatusDb, SyncStatusDb>();
 builder.Services.AddSingleton<ISyncService, SyncService>();
 
-// CONVERT
-builder.Services.AddSingleton<IConverter, FitConverter>();
-builder.Services.AddSingleton<IConverter, TcxConverter>();
-builder.Services.AddSingleton<IConverter, JsonConverter>();
+// USERS
+builder.Services.AddSingleton<IUsersDb, UsersDb>();
 
 FlurlConfiguration.Configure(config.Observability);
 Tracing.EnableApiTracing(builder.Services, config.Observability.Jaeger);
@@ -148,5 +156,15 @@ if (config.Observability.Prometheus.Enabled)
 //app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
+
+///////////////////////////////////////////////////////////
+/// MIGRATIONS
+///////////////////////////////////////////////////////////
+var migrationService = app.Services.GetService<IDbMigrations>();
+await migrationService!.PreformMigrations();
+
+///////////////////////////////////////////////////////////
+/// START
+///////////////////////////////////////////////////////////
 
 await app.RunAsync();

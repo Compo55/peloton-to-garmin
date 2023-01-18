@@ -103,13 +103,10 @@ namespace UnitTests.Conversion
 		}
 
 		[Test]
-		public void ConvertDistanceToMetersTest([Values("km","mi","ft", "KM", "m","unknown")]string unit)
+		public void ConvertDistanceToMetersTest([Values("km","mi","ft", "KM", "m","unknown", "min/500m")]string unit)
 		{
-			var autoMocker = new AutoMocker();
-			var converter = autoMocker.CreateInstance<ConverterInstance>();
-
 			var value = 8677;
-			var converted = converter.ConvertDistanceToMeters1(value, unit);
+			var converted = FitConverter.ConvertDistanceToMeters(value, unit);
 			switch (unit.ToLower())
 			{
 				case "km":
@@ -120,6 +117,9 @@ namespace UnitTests.Conversion
 					break;
 				case "ft":
 					converted.Should().Be((float)value * 0.3048f);
+					break;
+				case "min/500m":
+					converted.Should().Be((float)value / 500);
 					break;
 				case "m":
 				default:
@@ -134,10 +134,7 @@ namespace UnitTests.Conversion
 			var workoutSample = new WorkoutSamples();
 			workoutSample.Summaries = null;
 
-			var autoMocker = new AutoMocker();
-			var converter = autoMocker.CreateInstance<ConverterInstance>();
-
-			var converted = converter.GetTotalDistance1(workoutSample);
+			var converted = FitConverter.GetTotalDistance(workoutSample);
 			converted.Should().Be(0.0f);
 		}
 
@@ -147,62 +144,38 @@ namespace UnitTests.Conversion
 			var workoutSample = new WorkoutSamples();
 			workoutSample.Summaries = new List<Summary>() { new Summary() { Slug = "notDistance" } };
 
-			var autoMocker = new AutoMocker();
-			var converter = autoMocker.CreateInstance<ConverterInstance>();
-
-			var converted = converter.GetTotalDistance1(workoutSample);
+			var converted = FitConverter.GetTotalDistance(workoutSample);
 			converted.Should().Be(0.0f);
 		}
 
 		[Test]
-		public void GetTotalDistanceTest_Distance_Is_Converted_To_Meters([Values("mi", "ft", "km", "m")] string unit)
+		public void GetTotalDistanceTest_Distance_Is_Converted_To_Meters([Values("mi", "ft", "km", "m", "min/500m")] string unit)
 		{
-			var distance = 145;
+			var distance = 600;
 			var workoutSample = new WorkoutSamples();
 			workoutSample.Summaries = new List<Summary>() 
 			{ 
 				new Summary() { Slug = "distance", Display_Unit = unit, Value = distance } 
 			};
 
-			var autoMocker = new AutoMocker();
-			var converter = autoMocker.CreateInstance<ConverterInstance>();
-			var expectedDistance = converter.ConvertDistanceToMeters1(distance, unit);
+			var expectedDistance = FitConverter.ConvertDistanceToMeters(distance, unit);
 
-			var converted = converter.GetTotalDistance1(workoutSample);
+			var converted = FitConverter.GetTotalDistance(workoutSample);
 			converted.Should().Be(expectedDistance);
 		}
 
 		[Test]
-		public void ConvertToMetersPerSecondTest_NullSummary_Should_Return_Original_Value()
+		public void ConvertToMetersPerSecondTest_Is_Converted_To_MetersPerSecond([Values("mph", "kph")] string unit)
 		{
-			var workoutSample = new WorkoutSamples();
-			workoutSample.Summaries = null;
+			var value = 145;
 
 			var autoMocker = new AutoMocker();
 			var converter = autoMocker.CreateInstance<ConverterInstance>();
 
-			var value = 145;
-			var converted = converter.ConvertToMetersPerSecond1(value, workoutSample);
-			converted.Should().Be(value);
-		}
-
-		[Test]
-		public void ConvertToMetersPerSecondTest_Is_Converted_To_MetersPerSecond([Values("mi", "mph", "ft", "km", "m", "kph")] string unit)
-		{
-			var value = 145;
-			var workoutSample = new WorkoutSamples();
-			workoutSample.Summaries = new List<Summary>()
-			{
-				new Summary() { Slug = "distance", Display_Unit = unit, Value = value }
-			};
-
-			var autoMocker = new AutoMocker();
-			var converter = autoMocker.CreateInstance<ConverterInstance>();
-
-			var metersPerHour = converter.ConvertDistanceToMeters1(value, unit);
+			var metersPerHour = FitConverter.ConvertDistanceToMeters(value, unit);
 			var metersPerMinute = metersPerHour / 60;
 			var metersPerSecond = metersPerMinute / 60;
-			var converted = converter.ConvertToMetersPerSecond1(value, workoutSample);
+			var converted = FitConverter.ConvertToMetersPerSecond(value, unit);
 			converted.Should().Be(metersPerSecond);
 		}
 
@@ -211,10 +184,7 @@ namespace UnitTests.Conversion
 		{
 			var value = 5;
 
-			var autoMocker = new AutoMocker();
-			var converter = autoMocker.CreateInstance<ConverterInstance>();
-
-			var converted = converter.ConvertToMetersPerSecond1(value, null, unit);
+			var converted = FitConverter.ConvertToMetersPerSecond(value, unit);
 			converted.Should().Be(1.6666666F);
 		}
 
@@ -247,7 +217,7 @@ namespace UnitTests.Conversion
 
 			var autoMocker = new AutoMocker();
 			var converter = autoMocker.CreateInstance<ConverterInstance>();
-			var expectedDistance = converter.ConvertToMetersPerSecond1(speed, workoutSample);
+			var expectedDistance = FitConverter.ConvertToMetersPerSecond(speed, unit);
 
 			var converted = converter.GetMaxSpeedMetersPerSecond1(workoutSample);
 			converted.Should().Be(expectedDistance);
@@ -299,7 +269,7 @@ namespace UnitTests.Conversion
 
 			var autoMocker = new AutoMocker();
 			var converter = autoMocker.CreateInstance<ConverterInstance>();
-			var expectedDistance = converter.ConvertToMetersPerSecond1(speed, workoutSample);
+			var expectedDistance = FitConverter.ConvertToMetersPerSecond(speed, unit);
 
 			var converted = converter.GetAvgSpeedMetersPerSecond1(workoutSample);
 			converted.Should().Be(expectedDistance);
@@ -376,56 +346,6 @@ namespace UnitTests.Conversion
 
 			var hr = converter.GetUserMaxHeartRate1(workoutSample);
 			hr.Should().BeNull();
-		}
-
-		[Test]
-		public void GetCalorieSummary_NullWorkoutSamples_ReturnsNull()
-		{
-			var autoMocker = new AutoMocker();
-			var converter = autoMocker.CreateInstance<ConverterInstance>();
-
-			var calories = converter.GetCalorieSummary1(null);
-			calories.Should().BeNull();
-		}
-
-		[Test]
-		public void GetCalorieSummary_Summaries_ReturnsNull()
-		{
-			var workoutSamples = new WorkoutSamples();
-			workoutSamples.Summaries = null;
-
-			var autoMocker = new AutoMocker();
-			var converter = autoMocker.CreateInstance<ConverterInstance>();
-
-			var calories = converter.GetCalorieSummary1(workoutSamples);
-			calories.Should().BeNull();
-		}
-
-		[Test]
-		public void GetCalorieSummary_NoCalorieSlug_ReturnsNull()
-		{
-			var workoutSamples = new WorkoutSamples();
-			workoutSamples.Summaries = new List<Summary>() { new Summary() { Slug = "something" } };
-
-			var autoMocker = new AutoMocker();
-			var converter = autoMocker.CreateInstance<ConverterInstance>();
-
-			var calories = converter.GetCalorieSummary1(workoutSamples);
-			calories.Should().BeNull();
-		}
-
-		[Test]
-		public void GetCalorieSummary_CalorieSlug_ReturnsSummary()
-		{
-			var workoutSamples = new WorkoutSamples();
-			workoutSamples.Summaries = new List<Summary>() { new Summary() { Slug = "calories", Value = 100 } };
-
-			var autoMocker = new AutoMocker();
-			var converter = autoMocker.CreateInstance<ConverterInstance>();
-
-			var calories = converter.GetCalorieSummary1(workoutSamples);
-			calories.Should().NotBeNull();
-			calories.Value.Should().Be(100);
 		}
 
 		[Test]
@@ -697,6 +617,37 @@ namespace UnitTests.Conversion
 			ftp.Should().Be(expectedFtp);
 		}
 
+		// null & empty cases
+		// Calorie Slug
+		// TotalCalorie Slug
+		class CalorieScenarios
+		{
+			public static object[] Cases =
+			{
+				new object[] { null, null },
+				new object[] { new WorkoutSamples(), null },
+				new object[] { new WorkoutSamples() { Summaries = new List<Summary>() }, null },
+				new object[] { new WorkoutSamples() { Summaries = new List<Summary>() { new Summary() { Slug = "calories", Value = 10 } } }, 10 },
+				new object[] { new WorkoutSamples() { Summaries = new List<Summary>() { new Summary() { Slug = "calories", Value = 10 }, new Summary() { Slug = "total_calories", Value = 20 } } }, 10 },
+				new object[] { new WorkoutSamples() { Summaries = new List<Summary>() { new Summary() { Slug = "total_calories", Value = 20 } } }, 20 },
+				new object[] { new WorkoutSamples() { Summaries = new List<Summary>() { new Summary() { Slug = "somethingElse", Value = 30 } } }, null },
+			};
+		}
+
+		[TestCaseSource(typeof(CalorieScenarios), nameof(CalorieScenarios.Cases))]
+		public void GetCalorieSummary_ShouldPickCorrectValue(WorkoutSamples samples, int? expectedCalories)
+		{
+			// SETUP
+			var mocker = new AutoMocker();
+			var converter = mocker.CreateInstance<ConverterInstance>();
+
+			// ACT
+			var calorieSummary = ConverterInstance.GetCalorieSummary(samples);
+
+			// ASSERT
+			calorieSummary?.Value.Should().Be(expectedCalories);
+		}
+
 		private class ConverterInstance : Converter<string>
 		{
 			public ConverterInstance(ISettingsService settings, IFileHandling fileHandling) : base(settings, fileHandling) 
@@ -731,21 +682,6 @@ namespace UnitTests.Conversion
 				return this.GetTimeStamp(startTime, offset);
 			}
 
-			public float ConvertDistanceToMeters1(double value, string unit)
-			{
-				return this.ConvertDistanceToMeters(value, unit);
-			}
-
-			public float GetTotalDistance1(WorkoutSamples workoutSamples)
-			{
-				return base.GetTotalDistance(workoutSamples);
-			}
-
-			public float ConvertToMetersPerSecond1(double value, WorkoutSamples workoutSamples, string unit = null)
-			{
-				return base.ConvertToMetersPerSecond(value, workoutSamples, unit);
-			}
-
 			public float GetMaxSpeedMetersPerSecond1(WorkoutSamples workoutSamples)
 			{
 				return base.GetMaxSpeedMetersPerSecond(workoutSamples);
@@ -766,11 +702,6 @@ namespace UnitTests.Conversion
 				return base.GetUserMaxHeartRate(workoutSamples);
 			}
 
-			public Summary GetCalorieSummary1(WorkoutSamples workoutSamples)
-			{
-				return base.GetCalorieSummary(workoutSamples);
-			}
-
 			public Metric GetOutputSummary1(WorkoutSamples workoutSamples)
 			{
 				return base.GetOutputSummary(workoutSamples);
@@ -780,12 +711,6 @@ namespace UnitTests.Conversion
 			{
 				return base.GetHeartRateSummary(workoutSamples);
 			}
-
-			public Metric GetCadenceSummary1(WorkoutSamples workoutSamples)
-			{
-				return base.GetCadenceSummary(workoutSamples);
-			}
-
 			public Task<GarminDeviceInfo> GetDeviceInfo1(FitnessDiscipline sport, Settings settings)
 			{
 				return base.GetDeviceInfoAsync(sport, settings);

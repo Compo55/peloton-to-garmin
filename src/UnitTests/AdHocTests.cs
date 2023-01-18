@@ -19,6 +19,7 @@ using Serilog;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -27,28 +28,38 @@ namespace UnitTests
 	public class AdHocTests
 	{
 		private string DataDirectory = Path.Join(Directory.GetCurrentDirectory(), "..", "..", "..", "Data", "p2g_workouts");
+		private string FitDirectory = Path.Join(Directory.GetCurrentDirectory(), "..", "..", "..", "Data", "sample_fit");
 
 		[OneTimeSetUp]
 		public void Setup()
 		{
 			Log.Logger = new LoggerConfiguration()
 					.WriteTo.Console()
-					//.MinimumLevel.Verbose()
-					.MinimumLevel.Information()
+					.MinimumLevel.Verbose()
+					//.MinimumLevel.Information()
 					.CreateLogger();
 		}
 
 		//[Test]
-		//public async Task AA()
+		//public void EncryptionKeyGenerator()
 		//{
+		//	using var aesAlg = Aes.Create();
 
+		//	aesAlg.GenerateKey();
+		//	aesAlg.GenerateIV();
+
+		//	var key = string.Join(", ", aesAlg.Key);
+		//	var iv = string.Join(", ", aesAlg.IV);
+
+		//	TestContext.Out.WriteLine("Key: " + key);
+		//	TestContext.Out.WriteLine("IV: " + iv);
 		//}
 
 		//[Test]
 		//public void DecodeFitFile()
 		//{
-		//	var syncMyWorkoutFitFile = Path.Join(DataDirectory, "fenix_outdoor_run_vo2.fit");
-		//	FitDecoder.Decode(syncMyWorkoutFitFile);
+		//	var output = Path.Join(FitDirectory, "p2g_cycle_workout.fit");
+		//	FitDecoder.Decode(output);
 		//}
 
 		//[Test]
@@ -57,7 +68,7 @@ namespace UnitTests
 		//	var email = "";
 		//	var password = "";
 
-		//	var workoutId = "";
+		//	var workoutId = "13afceebe0f74a338f60bf9d70f657ef";
 		//	var userId = "";
 
 		//	var settings = new Settings()
@@ -76,11 +87,44 @@ namespace UnitTests
 		//	var client = new ApiClient(settingMock.Object);
 
 		//	//var recentWorkouts = await client.GetWorkoutsAsync(userId, 5, 0);
-		//	var workoutSamples = await client.GetWorkoutsAsync(System.DateTime.UtcNow.AddDays(-1), System.DateTime.UtcNow);
-		//	await client.GetUserDataAsync();
+		//	var workouts = await client.GetWorkoutsAsync(System.DateTime.UtcNow.AddDays(-1), System.DateTime.UtcNow);
+		//	var workoutSamples = await client.GetWorkoutSamplesByIdAsync(workoutId);
 
-		//	Log.Debug(workoutSamples.ToString());
-		//	//SaveRawData(workoutSamples, workoutId, DataDirectory);
+		//	//await client.GetUserDataAsync();
+
+		//	//Log.Debug(workoutSamples.ToString());
+		//	SaveRawData(workoutSamples, workoutId, DataDirectory);
+		//}
+
+		//[Test]
+		//public async Task DownloadAndSaveP2GWorkoutDetails()
+		//{
+		//	var email = "";
+		//	var password = "";
+
+		//	var workoutId = "db3ec6bf91094060aaad7df12a1f1ca1";
+		//	var userId = "bfe1cd4a3f554a53b2ac0af386562e3d";
+
+		//	var settings = new Settings()
+		//	{
+		//		Peloton = new()
+		//		{
+		//			Email = email,
+		//			Password = password,
+		//		}
+		//	};
+
+		//	var autoMocker = new AutoMocker();
+		//	var settingMock = autoMocker.GetMock<ISettingsService>();
+		//	settingMock.Setup(s => s.GetSettingsAsync()).ReturnsAsync(settings);
+
+		//	var fileHandler = autoMocker.GetMock<IFileHandling>();
+
+		//	var client = new ApiClient(settingMock.Object);
+		//	var service = new PelotonService(settingMock.Object, client, fileHandler.Object);
+
+		//	var p2gWorkout = await service.GetWorkoutDetailsAsync(workoutId);
+		//	SaveData(p2gWorkout, workoutId, DataDirectory);
 		//}
 
 		//[Test]
@@ -92,17 +136,23 @@ namespace UnitTests
 		//}
 
 		//[Test]
-		//public async Task Convert()
+		//public async Task Convert_From_File()
 		//{
-		//	var file = Path.Join(DataDirectory, "rower_workout.json");
+		//	var file = Path.Join(DataDirectory, "just_walk_outdoor.json");
+		//	//var file = Path.Join(DataDirectory, "cycling_target_metrics.json");
+		//	//var file = Path.Join(DataDirectory, "tread_run_workout.json");
 
 		//	var autoMocker = new AutoMocker();
-		//	var settingsService = autoMocker.CreateInstance<SettingsService>();
+		//	var settingsService = autoMocker.GetMock<SettingsService>();
 
-		//	var settings = new Settings();
+		//	var settings = new Settings()
+		//	{
+		//	};
 		//	var fileHandler = new IOWrapper();
 
-		//	var fitConverter = new ConverterInstance(settingsService, fileHandler);
+		//	settingsService.SetReturnsDefault(settings);
+
+		//	var fitConverter = new ConverterInstance(settingsService.Object, fileHandler);
 		//	var messages = await fitConverter.Convert(file, settings);
 
 		//	var output = Path.Join(DataDirectory, "output.fit");
@@ -113,6 +163,12 @@ namespace UnitTests
 		private void SaveRawData(dynamic data, string workoutId, string path)
 		{
 			System.IO.File.WriteAllText(Path.Join(path, $"{workoutId}_workout.json"), data.ToString());
+		}
+
+		private void SaveData(object data, string fileName, string path)
+		{
+			var serializedData = JsonSerializer.Serialize(data, new JsonSerializerOptions() { PropertyNameCaseInsensitive = true, WriteIndented = true });
+			System.IO.File.WriteAllText(Path.Join(path, $"{fileName}_workout.json"), serializedData.ToString());
 		}
 
 		private async Task<JObject> GetRecentWorkoutsAsync(string userId, int numWorkouts = 3)
